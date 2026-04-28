@@ -1,0 +1,159 @@
+# Subsystem Taxonomy for Movement's aptos-core fork (m1 branch)
+#
+# Used by: subsystem classifier, risk scorer, policy engine
+# Each file in a PR is matched against these path globs to determine
+# which subsystem it belongs to, how critical it is, and whether it
+# can affect on-chain smart contract behavior.
+
+subsystems:
+
+  move-framework:
+    paths:
+      - "aptos-move/framework/**"
+    criticality: critical
+    contract_facing: true
+    description: "stdlib, aptos-framework, token, coin, fungible asset modules"
+    owners: ["framework-team"]
+
+  vm-runtime:
+    paths:
+      - "aptos-move/aptos-vm/**"
+      - "third_party/move/move-vm/**"
+    criticality: critical
+    contract_facing: true
+    description: "VM execution engine, bytecode interpreter, session management"
+    owners: ["vm-team"]
+
+  bytecode-verifier:
+    paths:
+      - "third_party/move/move-bytecode-verifier/**"
+    criticality: critical
+    contract_facing: true
+    description: "Bytecode safety verification, type checking, reference safety"
+    owners: ["vm-team"]
+
+  move-compiler:
+    paths:
+      - "third_party/move/move-compiler-v2/**"
+      - "third_party/move/move-compiler/**"
+    criticality: high
+    contract_facing: indirect
+    description: "Move compiler, code generation, IR pipeline"
+    owners: ["compiler-team"]
+
+  native-functions:
+    paths:
+      - "aptos-move/aptos-native-interface/**"
+      - "aptos-move/framework/src/natives/**"
+    criticality: critical
+    contract_facing: true
+    description: "Native function implementations callable from Move contracts"
+    owners: ["framework-team", "vm-team"]
+
+  gas-fee:
+    paths:
+      - "aptos-move/aptos-gas-*/**"
+      - "aptos-move/e2e-move-tests/**/gas/**"
+    criticality: high
+    contract_facing: true
+    description: "Gas metering, fee calculation, cost tables"
+    owners: ["vm-team"]
+
+  tx-validation:
+    paths:
+      - "aptos-move/aptos-vm/src/transaction_validation.rs"
+      - "aptos-move/aptos-vm/src/prologue_epilogue.rs"
+      - "aptos-move/aptos-vm/src/aptos_vm.rs"
+    criticality: critical
+    contract_facing: true
+    description: "Transaction prologue/epilogue, validation, authentication"
+    owners: ["vm-team"]
+
+  storage-state:
+    paths:
+      - "storage/**"
+      - "aptos-move/aptos-vm/src/storage_adapter*"
+    criticality: high
+    contract_facing: true
+    description: "State storage, Merkle tree, DB layer, state view"
+    owners: ["storage-team"]
+
+  governance-config:
+    paths:
+      - "aptos-move/framework/**/governance*"
+      - "aptos-move/framework/**/features*"
+      - "aptos-move/framework/**/chain_status*"
+      - "aptos-move/framework/**/config_buffer*"
+      - "aptos-move/framework/**/reconfiguration*"
+    criticality: high
+    contract_facing: true
+    description: "On-chain governance, feature flags, chain configuration, reconfiguration"
+    owners: ["framework-team"]
+
+  consensus:
+    paths:
+      - "consensus/**"
+    criticality: high
+    contract_facing: false
+    description: "Consensus protocol, validator set, BFT, quorum"
+    owners: ["consensus-team"]
+
+  networking:
+    paths:
+      - "network/**"
+    criticality: medium
+    contract_facing: false
+    description: "P2P networking, peer management, protocol"
+    owners: ["infra-team"]
+
+  movement-wrappers:
+    paths:
+      - "m1/**"
+      - "execution/**"
+      - "networks/**"
+    exclude:
+      - "m1/da/**"
+      - "m1/settlement/**"
+    criticality: high
+    contract_facing: varies
+    description: "Movement-specific adaptations, wrappers, configuration overrides"
+    owners: ["movement-core"]
+
+  movement-da:
+    paths:
+      - "m1/da/**"
+      - "m1/settlement/**"
+    criticality: high
+    contract_facing: indirect
+    description: "Movement data availability and settlement layers"
+    owners: ["movement-core"]
+
+  testing-infra:
+    paths:
+      - "aptos-move/e2e-move-tests/**"
+      - "testsuite/**"
+    criticality: low
+    contract_facing: false
+    description: "Test harnesses, test utilities, e2e test suites"
+    owners: ["any"]
+
+  tooling:
+    paths:
+      - "aptos-move/aptos-*-tool/**"
+      - "crates/aptos/**"
+    criticality: low
+    contract_facing: false
+    description: "CLI tools, SDK, developer tooling"
+    owners: ["devrel"]
+
+# Criticality levels:
+#   critical  -> always deep analysis, always validate, always human review
+#   high      -> deep analysis for medium+ risk, validate for high+ risk
+#   medium    -> standard analysis, validate only for critical risk
+#   low       -> lightweight analysis, auto-close unless flagged
+#
+# contract_facing:
+#   true      -> changes can directly alter on-chain smart contract behavior
+#   indirect  -> changes can indirectly affect contracts (compiler output, DA, settlement)
+#   false     -> no contract behavior impact
+#   varies    -> depends on specific file within subsystem

@@ -1,0 +1,115 @@
+# Risk Scoring Reference
+#
+# Read by: normalizer agent when scoring an audit packet.
+# Every audit packet gets a composite risk score from 0.0 to 1.0.
+# The score determines which analyzers run and how much context to retrieve.
+
+weights:
+  subsystem_criticality: 0.25
+  security_surface: 0.25
+  exposure: 0.20
+  divergence_score: 0.15
+  change_magnitude: 0.10
+  feature_flag_exposure: 0.05
+
+factors:
+
+  subsystem_criticality:
+    description: "Highest criticality among all subsystems touched"
+    mapping:
+      critical: 1.0
+      high: 0.7
+      medium: 0.4
+      low: 0.1
+
+  security_surface:
+    description: "What security boundary does the changed code sit on? Take the highest if multiple apply."
+    surfaces:
+      contract_execution: 1.0
+        # VM interpreter, native functions, framework modules, bytecode verifier
+      transaction_boundary: 1.0
+        # Prologue, epilogue, signature verification, sequence number checks
+      state_integrity: 0.9
+        # State store, Merkle tree, DB layer, state view, snapshot logic
+      consensus_safety: 0.9
+        # BFT protocol, block proposal, voting, quorum, epoch management
+      cryptographic: 0.9
+        # Signature verification, hash functions, key derivation, VRF, randomness
+      gas_economics: 0.8
+        # Gas schedule, fee calculation, storage fees, cost tables
+      authentication: 0.8
+        # Account auth, multi-key, keyless auth, capability checks
+      movement_infra: 0.8
+        # DA layer, settlement layer, Movement wrappers, custom bridges
+      governance_config: 0.7
+        # Feature flags, on-chain config, reconfiguration, governance proposals
+      networking: 0.6
+        # P2P layer, RPC handlers, message serialization, peer discovery
+      tooling: 0.2
+        # CLI, SDK, documentation generators — no runtime impact
+      testing: 0.1
+        # Test harnesses, e2e utils — no production impact
+
+  exposure:
+    description: "Who can reach the changed code and how easily?"
+    mapping:
+      any_transaction: 1.0
+      crafted_transaction: 0.9
+      validator_action: 0.7
+      operator_config: 0.3
+      build_time: 0.1
+      internal_only: 0.0
+
+  divergence_score:
+    description: "How much does m1 differ from upstream in the changed files?"
+    range: "0.0 (identical to upstream) to 1.0 (no upstream equivalent)"
+
+  change_magnitude:
+    description: "Size of the change"
+    method: "min(1.0, (lines_added + lines_removed) / 500)"
+
+  feature_flag_exposure:
+    description: "Does the change interact with feature flags?"
+    mapping:
+      defines_flag: 1.0
+      gates_on_flag: 0.7
+      near_flag: 0.3
+      none: 0.0
+
+# Risk tiers and consequences:
+
+tiers:
+  low:       { range: [0.0, 0.3], analyzers: [],                                         validators: [],                      retrieval: "L0+L1", tokens: 4000  }
+  medium:    { range: [0.3, 0.6], analyzers: ["security-impact"],                         validators: [],                      retrieval: "L0-L2", tokens: 12000 }
+  high:      { range: [0.6, 0.8], analyzers: ["security-impact", "regression-risk"],      validators: ["unit-runner"],          retrieval: "L0-L3", tokens: 30000 }
+  critical:  { range: [0.8, 1.0], analyzers: ["security-impact", "regression-risk", "test-synthesis"], validators: ["unit-runner", "diff-runner"], retrieval: "L0-L3+", tokens: 60000 }
+
+# Overrides (applied after composite score):
+
+overrides:
+  - when: "security_surface in [contract_execution, transaction_boundary, consensus_safety, cryptographic]"
+    then: "floor tier to high"
+
+  - when: "source_type == upstream_candidate"
+    then: "replace analyzers with [upstream-relevance]"
+
+  - when: "divergence_score > 0.7"
+    then: "flag manual-review-required"
+
+  - when: "security_surface == movement_infra"
+    then: "add analyzer: movement-specific"
+
+  - when: "exposure == build_time"
+    then: "cap tier at low"
+
+  - when: "exposure == internal_only"
+    then: "cap tier at low"
+
+  - when: "exposure == operator_config"
+    then: "cap tier at medium unless exploitability is proven under supported defaults"
+
+  - when: "feature_flag_exposure in [gates_on_flag, near_flag]"
+    then: "require explicit verification of default enablement before raising severity above medium"
+
+  - when: "finding depends on non-default build feature, disabled-by-default config, or sanitizer bypass"
+    then: "classify as deployment-footgun unless supported-production enablement is proven"
