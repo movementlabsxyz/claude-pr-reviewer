@@ -44,9 +44,13 @@ Post as a single PR comment via the GitHub API. Template:
 
 ### Top 3 to Address
 
-1. **[{sev}]** {title} — `{file}:{line}` — {one-line why}
+Each `file:line` is a markdown link to the corresponding inline review comment's permalink. Reviewers click once and land on the Claude-bot thread (with code context + `@claude` reply box). The subagent captures these URLs from the API response when it posts the inline comments and looks them up by `file:line` when assembling this list. See "Step 5a / 5b" in `agents/audit-pr.md`.
+
+1. **[{sev}]** {title} — [`{file}:{line}`]({inline_comment_url}) — {one-line why}
 2. ...
 3. ...
+
+If an inline comment could not be anchored (e.g. line not in diff), the same `file:line` appears as plain text (no link) and the finding is also listed in the appendix "Findings that could not be anchored inline".
 
 ### Verdict
 
