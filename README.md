@@ -7,9 +7,10 @@ This repo holds only the *contents* the audit consumes:
 
 | Path | Purpose |
 |---|---|
-| `agents/audit-pr.md` | Subagent definition (frontmatter + system prompt) |
+| `agents/audit-pr.md` | Subagent definition (frontmatter + system prompt) for the FRESH-audit pipeline |
 | `agents/audit-pr/` | Analyzer references, taxonomy, risk scoring, scripts |
-| `prompts/audit-pr.md` | Top-level prompt fed to `claude-code-action` |
+| `prompts/audit-pr-fresh.md` | Top-level prompt for `AUDIT_MODE=fresh` (label / reviewer / first-`@claude` trigger) — delegates to the audit-pr subagent |
+| `prompts/audit-pr-follow-up.md` | Top-level prompt for `AUDIT_MODE=follow-up` (`@claude` comment on a PR that already has an audit summary) — answers the question directly, no subagent |
 | `settings.json` | CI-time Claude Code permissions allow/deny list |
 
 The GitHub Actions workflow that *triggers* the audit lives in `aptos-core`
@@ -28,8 +29,16 @@ A consuming workflow must:
    cp    .claude-reviewer/settings.json    .claude/settings.json
    chmod +x .claude/agents/audit-pr/scripts/*.sh
    ```
-3. Pass `.claude-reviewer/prompts/audit-pr.md` as the `prompt:` input to
-   `anthropics/claude-code-action@v1`.
+3. Compute `AUDIT_MODE` (`fresh` or `follow-up`) in a workflow step before
+   loading the prompt. Then pass the matching prompt file as the `prompt:`
+   input to `anthropics/claude-code-action@v1`:
+   ```bash
+   cat ".claude-reviewer/prompts/audit-pr-${AUDIT_MODE}.md"
+   ```
+   The two modes are separated into distinct files (not a single conditional
+   prompt) because LLMs do not reliably gate on `if AUDIT_MODE=fresh ...`
+   conditionals in natural-language prompts. A single file with both modes
+   caused Claude to do a full re-audit on follow-up triggers in practice.
 4. Export the env vars the subagent reads (see `agents/audit-pr.md` for the
    full list — at minimum: `PR_NUMBER`, `BASE_SHA`, `HEAD_SHA`, `REPO_PATH`,
    `AGENT_DIR`, `GITHUB_REPOSITORY`, `AUDIT_MODE`).
